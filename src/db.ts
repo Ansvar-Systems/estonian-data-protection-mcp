@@ -1,9 +1,9 @@
 /**
- * SQLite database access layer for the CNIL MCP server.
+ * SQLite database access layer for the AKI MCP server.
  *
  * Schema:
- *   - decisions    — CNIL deliberations, sanctions, and mises en demeure
- *   - guidelines   — CNIL guidance documents, recommandations, and referentiels
+ *   - decisions    — AKI decisions, sanctions, warnings, and reprimands
+ *   - guidelines   — AKI guidance documents, recommendations, and FAQs
  *   - topics       — controlled vocabulary for data protection topics
  *
  * FTS5 virtual tables back full-text search on decisions and guidelines.
@@ -260,4 +260,29 @@ export function listTopics(): Topic[] {
   return db
     .prepare("SELECT * FROM topics ORDER BY id")
     .all() as Topic[];
+}
+
+// --- Data freshness -----------------------------------------------------------
+
+export interface DataFreshness {
+  decisions_newest: string | null;
+  decisions_count: number;
+  guidelines_newest: string | null;
+  guidelines_count: number;
+}
+
+export function getDataFreshness(): DataFreshness {
+  const db = getDb();
+  const dr = db
+    .prepare("SELECT MAX(date) AS newest, COUNT(*) AS count FROM decisions")
+    .get() as { newest: string | null; count: number };
+  const gr = db
+    .prepare("SELECT MAX(date) AS newest, COUNT(*) AS count FROM guidelines")
+    .get() as { newest: string | null; count: number };
+  return {
+    decisions_newest: dr.newest,
+    decisions_count: dr.count,
+    guidelines_newest: gr.newest,
+    guidelines_count: gr.count,
+  };
 }
