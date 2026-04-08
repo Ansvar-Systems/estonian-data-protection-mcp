@@ -1,0 +1,40 @@
+{
+  "jurisdiction": "EE",
+  "authority": "AKI",
+  "authority_name": "Andmekaitse Inspektsioon (Estonian Data Protection Inspectorate)",
+  "authority_url": "https://www.aki.ee/",
+  "datasets": [
+    {
+      "id": "decisions",
+      "label": "AKI Decisions and Sanctions",
+      "types": ["sanction", "warning", "reprimand", "decision"],
+      "sources": [
+        "https://www.aki.ee/ettekirjutused",
+        "https://www.aki.ee/meist/aki-tegevus/aki-otsused"
+      ]
+    },
+    {
+      "id": "guidelines",
+      "label": "AKI Guidance Documents",
+      "types": ["guide", "recommendation", "faq", "template"],
+      "sources": [
+        "https://www.aki.ee/kiirelt-katte/juhendid"
+      ]
+    }
+  ],
+  "topics": [
+    "cookies",
+    "consent",
+    "data_breach",
+    "dpia",
+    "employee_monitoring",
+    "video_surveillance",
+    "data_subject_rights",
+    "international_transfers"
+  ],
+  "known_gaps": [
+    "Decisions pre-2019 may be incomplete",
+    "Full text available only in Estonian for most decisions",
+    "English translations limited to select guidance documents"
+  ]
+}
