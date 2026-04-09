@@ -43,8 +43,11 @@
     "dev": "tsx src/http-server.ts",
     "start": "node dist/src/http-server.js",
     "seed": "npx tsx scripts/seed-sample.ts",
+    "build:db": "npx tsx scripts/seed-sample.ts",
     "typecheck": "tsc --noEmit -p tsconfig.json",
-    "lint": "tsc --noEmit"
+    "lint": "tsc --noEmit",
+    "test": "echo 'No automated tests configured' && exit 0",
+    "check-updates": "npx npm-check-updates"
   },
   "devDependencies": {
     "@types/better-sqlite3": "^7.6.12",

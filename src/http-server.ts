@@ -29,7 +29,9 @@ import {
   searchGuidelines,
   getGuideline,
   listTopics,
+  getDataFreshness,
 } from "./db.js";
+import { buildCitation } from "./citation.js";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
@@ -117,6 +119,18 @@ const TOOLS = [
     inputSchema: { type: "object" as const, properties: {}, required: [] },
   },
   {
+    name: "ee_dp_list_sources",
+    description:
+      "List the data sources and collections available in this MCP: decisions corpus and guidelines corpus with record counts and newest record dates.",
+    inputSchema: { type: "object" as const, properties: {}, required: [] },
+  },
+  {
+    name: "ee_dp_check_data_freshness",
+    description:
+      "Check when the local database was last updated. Returns record counts and the date of the most recent decision and guideline ingested.",
+    inputSchema: { type: "object" as const, properties: {}, required: [] },
+  },
+  {
     name: "ee_dp_about",
     description: "Return metadata about this MCP server: version, data source, coverage, and tool list.",
     inputSchema: { type: "object" as const, properties: {}, required: [] },
@@ -146,6 +160,18 @@ const SearchGuidelinesArgs = z.object({
 const GetGuidelineArgs = z.object({
   id: z.number().int().positive(),
 });
+
+// --- Meta helper -------------------------------------------------------------
+
+const META_BASE = {
+  disclaimer: "This is not legal advice. Verify all information with official AKI sources.",
+  source_url: "https://www.aki.ee/",
+  copyright: "AKI (Andmekaitse Inspektsioon)",
+};
+
+function addMeta(toolName: string, data: Record<string, unknown>): Record<string, unknown> {
+  return { ...data, _meta: { ...META_BASE, tool: toolName } };
+}
 
 // --- MCP server factory ------------------------------------------------------
 
@@ -185,7 +211,7 @@ function createMcpServer(): Server {
             topic: parsed.topic,
             limit: parsed.limit,
           });
-          return textContent({ results, count: results.length });
+          return textContent(addMeta("ee_dp_search_decisions", { results, count: results.length }));
         }
 
         case "ee_dp_get_decision": {
@@ -194,7 +220,17 @@ function createMcpServer(): Server {
           if (!decision) {
             return errorContent(`Decision not found: ${parsed.reference}`);
           }
-          return textContent(decision);
+          const decisionRecord = decision as Record<string, unknown>;
+          return textContent(addMeta("ee_dp_get_decision", {
+            ...decisionRecord,
+            _citation: buildCitation(
+              String(decisionRecord["reference"] ?? parsed.reference),
+              String(decisionRecord["title"] ?? decisionRecord["reference"] ?? parsed.reference),
+              "ee_dp_get_decision",
+              { reference: parsed.reference },
+              decisionRecord["url"] as string | undefined,
+            ),
+          }));
         }
 
         case "ee_dp_search_guidelines": {
@@ -205,7 +241,7 @@ function createMcpServer(): Server {
             topic: parsed.topic,
             limit: parsed.limit,
           });
-          return textContent({ results, count: results.length });
+          return textContent(addMeta("ee_dp_search_guidelines", { results, count: results.length }));
         }
 
         case "ee_dp_get_guideline": {
@@ -214,22 +250,61 @@ function createMcpServer(): Server {
           if (!guideline) {
             return errorContent(`Guideline not found: id=${parsed.id}`);
           }
-          return textContent(guideline);
+          const guidelineRecord = guideline as Record<string, unknown>;
+          return textContent(addMeta("ee_dp_get_guideline", {
+            ...guidelineRecord,
+            _citation: buildCitation(
+              String(guidelineRecord["reference"] ?? guidelineRecord["id"] ?? parsed.id),
+              String(guidelineRecord["title"] ?? guidelineRecord["reference"] ?? `Guideline ${parsed.id}`),
+              "ee_dp_get_guideline",
+              { id: String(parsed.id) },
+              guidelineRecord["url"] as string | undefined,
+            ),
+          }));
         }
 
         case "ee_dp_list_topics": {
           const topics = listTopics();
-          return textContent({ topics, count: topics.length });
+          return textContent(addMeta("ee_dp_list_topics", { topics, count: topics.length }));
+        }
+
+        case "ee_dp_list_sources": {
+          const freshness = getDataFreshness();
+          return textContent(addMeta("ee_dp_list_sources", {
+            sources: [
+              {
+                id: "decisions",
+                label: "AKI Decisions and Sanctions",
+                authority: "AKI (Andmekaitse Inspektsioon)",
+                url: "https://www.aki.ee/ettekirjutused",
+                record_count: freshness.decisions_count,
+                newest_record: freshness.decisions_newest,
+              },
+              {
+                id: "guidelines",
+                label: "AKI Guidance Documents",
+                authority: "AKI (Andmekaitse Inspektsioon)",
+                url: "https://www.aki.ee/kiirelt-katte/juhendid",
+                record_count: freshness.guidelines_count,
+                newest_record: freshness.guidelines_newest,
+              },
+            ],
+          }));
+        }
+
+        case "ee_dp_check_data_freshness": {
+          const freshness = getDataFreshness();
+          return textContent(addMeta("ee_dp_check_data_freshness", { ...freshness }));
         }
 
         case "ee_dp_about": {
-          return textContent({
+          return textContent(addMeta("ee_dp_about", {
             name: SERVER_NAME,
             version: pkgVersion,
             description: "AKI (Andmekaitse Inspektsioon) MCP server. Provides access to Estonian data protection authority decisions and guidance.",
             data_source: "AKI (https://www.aki.ee/)",
             tools: TOOLS.map((t) => ({ name: t.name, description: t.description })),
-          });
+          }));
         }
 
         default:
